@@ -11,6 +11,33 @@ from scipy import stats
 from blenderproc.python.camera import CameraUtility
 from blenderproc.python.utility.BlenderUtility import get_all_blender_mesh_objects
 
+# jlltest
+def depth2disparity(depth: Union[List[np.ndarray], np.ndarray]) -> Union[List[np.ndarray], np.ndarray]:
+    """
+    Maps a depth image to disparity image, also works with a list of images.
+
+    :param depth: The depth data.
+    :return: The disparity data
+    """
+
+    depth = trim_redundant_channels(depth)
+
+    if isinstance(depth, list) or hasattr(depth, "shape") and len(depth.shape) > 2:
+        return [depth2disparity(img) for img in depth]
+
+    # Collect camera and camera object
+    cam_ob = bpy.context.scene.camera
+    cam = cam_ob.data
+
+    baseline = cam.stereo.interocular_distance
+    if not baseline:
+        raise Exception("Stereo parameters are not set. Make sure to enable RGB stereo rendering before this module.")
+
+    focal_length = CameraUtility.get_intrinsics_as_K_matrix()[0, 0]
+
+    disparity = 1 / (depth / focal_length / baseline)
+
+    return disparity
 
 def dist2depth(dist: Union[List[np.ndarray], np.ndarray]) -> Union[List[np.ndarray], np.ndarray]:
     """

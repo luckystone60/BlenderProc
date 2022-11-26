@@ -14,10 +14,29 @@ default_rgb_keys = ["colors", "normals", "diffuse", "nocs"]
 default_flow_keys = ["forward_flow", "backward_flow"]
 default_segmap_keys = ["segmap", ".*_segmaps"]
 default_segcolormap_keys = ["segcolormap"]
-default_depth_keys = ["distance", "depth", "stereo-depth"]
+default_depth_keys = ["distance", "depth", "stereo-depth", "disparity"]
 all_default_keys = default_rgb_keys + default_flow_keys + default_segmap_keys + default_segcolormap_keys + \
                    default_depth_keys
 default_depth_max = 20
+
+def write_pfm(data, fpath, scale=1, file_identifier=b'Pf', dtype="float32"):
+    # PFM format definition: http://netpbm.sourceforge.net/doc/pfm.html
+
+    data = np.flipud(data)
+    height, width = np.shape(data)[:2]
+    values = np.ndarray.flatten(np.asarray(data, dtype=dtype))
+    endianess = data.dtype.byteorder
+    print(endianess)
+
+    if endianess == '<' or (endianess == '=' and sys.byteorder == 'little'):
+        scale *= -1
+
+    with open(fpath, 'wb') as file:
+        file.write((file_identifier))
+        file.write(('\n%d %d\n' % (width, height)).encode())
+        file.write(('%d\n' % scale).encode())
+
+        file.write(values)
 
 
 def flow_to_rgb(flow):
@@ -140,6 +159,8 @@ def vis_data(key, data, full_hdf5_data=None, file_label="", rgb_keys=None, flow_
         else:
             plt.imsave(save_to_file, data, cmap='summer', vmax=depth_max)
             plt.close()
+            # jlltest
+            write_pfm(data, save_to_file)
     elif key_matches(key, rgb_keys):
         if save_to_file is None:
             plt.imshow(data)
@@ -198,17 +219,15 @@ def vis_file(path, keys_to_visualize=None, rgb_keys=None, flow_keys=None, segmap
                                                     f"_{key}.png")
                     else:
                         save_to_file = None
-
                     # Check if it is a stereo image
                     if len(value.shape) >= 3 and value.shape[0] == 2:
                         # Visualize both eyes separately
                         for i, img in enumerate(value):
-                            if save_to_file:
-                                save_to_file = str(Path(save_to_file).with_suffix("")) + (
-                                    "_left" if i == 0 else "_right") + Path(save_to_file).suffix
+                            used_save_to_file = str(Path(save_to_file).with_suffix("")) + (
+                                "_left" if i == 0 else "_right") + Path(save_to_file).suffix
                             vis_data(key, img, data, os.path.basename(path) + (" (left)" if i == 0 else " (right)"),
                                      rgb_keys, flow_keys, segmap_keys, segcolormap_keys, depth_keys, depth_max,
-                                     save_to_file)
+                                     used_save_to_file)
                     else:
                         vis_data(key, value, data, os.path.basename(path), rgb_keys, flow_keys, segmap_keys,
                                  segcolormap_keys, depth_keys, depth_max, save_to_file)

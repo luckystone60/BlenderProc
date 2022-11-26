@@ -41,8 +41,16 @@ def convert_hdf(base_file_path: str, output_folder: Optional[str] = None):
                         else:
                             # stereo image
                             for image_index, image_value in enumerate(val):
-                                file_path = f'{base_name}_{key}_{image_index}.png'
-                                save_array_as_image(image_value, key, file_path)
+                                # file_path = f'{base_name}_{key}_{image_index}.png'
+                                # save_array_as_image(image_value, key, file_path)
+
+                                # jlltest
+                                if len(image_value.shape) == 3:
+                                    file_path = f'{base_name}_{key}_{image_index}.png'
+                                    save_array_as_image(image_value, key, file_path)
+                                else:
+                                    file_path = f'{base_name}_{key}_{image_index}.pfm'
+                                    save_array_as_image(image_value, key, file_path)
         else:
             print("The path is not a file")
     else:

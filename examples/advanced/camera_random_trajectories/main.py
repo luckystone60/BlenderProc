@@ -1,3 +1,5 @@
+# blenderproc run examples/advanced/camera_random_trajectories/main.py examples/resources/scene.obj examples/advanced/camera_random_trajectories/output
+
 import blenderproc as bproc
 import numpy as np
 import argparse

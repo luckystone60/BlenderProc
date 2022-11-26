@@ -21,6 +21,25 @@ from blenderproc.python.utility.MathUtility import change_coordinate_frame_of_po
     change_source_coordinate_frame_of_transformation_matrix, change_target_coordinate_frame_of_transformation_matrix
 from blenderproc.python.camera import CameraUtility
 
+def write_pfm(data, fpath, scale=1, file_identifier=b'Pf', dtype="float32"):
+    # PFM format definition: http://netpbm.sourceforge.net/doc/pfm.html
+
+    data = np.flipud(data)
+    height, width = np.shape(data)[:2]
+    values = np.ndarray.flatten(np.asarray(data, dtype=dtype))
+    endianess = data.dtype.byteorder
+    print(endianess)
+
+    if endianess == '<' or (endianess == '=' and sys.byteorder == 'little'):
+        scale *= -1
+
+    with open(fpath, 'wb') as file:
+        file.write((file_identifier))
+        file.write(('\n%d %d\n' % (width, height)).encode())
+        file.write(('%d\n' % scale).encode())
+
+        file.write(values)
+
 
 def write_hdf5(output_dir_path: str, output_data_dict: Dict[str, List[Union[np.ndarray, list, dict]]],
                append_to_existing_output: bool = False, stereo_separate_keys: bool = False):
