@@ -6,10 +6,58 @@ import os
 import bpy
 import numpy as np
 from PIL import Image
+import cv2 as cv
 
 from blenderproc.scripts.visHdf5Files import vis_data
 from blenderproc.python.utility.Utility import Utility
 
+def write_video(
+        output_dir_path: str,
+        output_data_dict: Dict[str, List[Union[np.ndarray, list, dict]]],
+        append_to_existing_output: bool = False,
+        frame_duration_in_ms: int = 50,
+        reverse_animation: bool = False,
+        specific_key: str = None,
+        fps:int = 10):
+    """
+    Generates a .gif file animation out of rendered frames
+
+    :param output_dir_path: The directory path in which the gif animation folder will be saved
+    :param output_data_dict: The data dictionary which was produced by the render method.
+    :param append_to_existing_output: If this is True, the output_dir_path folder will be scanned for pre-existing
+                            files of the name #_animation.gif and the number of newly added files will
+                            start right where the last run left off.
+    :param frame_duration_in_ms: Duration of each frame in the animation in milliseconds.
+    :param reverse_animation: If this is True, the order of the frames will be reversed.
+    """
+
+    # Generates subdirectory for .gif files
+    output_dir_path = _GifWriterUtility.provide_directory(output_dir_path)
+
+    # From WriterUtility.py
+    amount_of_frames = 0
+    for data_block in output_data_dict.values():
+        if isinstance(data_block, list):
+            amount_of_frames = max([amount_of_frames, len(data_block)])
+
+    # From WriterUtility.py
+    if amount_of_frames != bpy.context.scene.frame_end - bpy.context.scene.frame_start:
+        raise RuntimeError("The amount of images stored in the output_data_dict does not correspond with the amount"
+                           "of images specified by frame_start to frame_end.")
+
+    # Sorts out keys which are just metadata and not plottable
+    keys_to_use = _GifWriterUtility.select_keys(output_data_dict)
+    if specific_key is not None and specific_key in keys_to_use:
+        keys_to_use = [specific_key,]
+
+    # Build temporary folders with .png collections
+    to_animate = _GifWriterUtility.cache_png(keys_to_use, output_data_dict)
+
+    # Write the cache .png files to .gif files and delete cache
+    _GifWriterUtility.write_to_video(to_animate, output_dir_path,
+                                   append_to_existing_output,
+                                   frame_duration_in_ms,
+                                   reverse_animation, fps=fps)
 
 def write_gif_animation(
         output_dir_path: str,
@@ -158,3 +206,34 @@ class _GifWriterUtility:
             file = os.path.join(output_dir_path, file_name)
             frames[0].save(file, format='GIF', append_images=frames[1:], save_all=True, duration=frame_duration_in_ms,
                            loop=0)
+
+    @staticmethod
+    def write_to_video(to_animate: Dict[str, list],
+                     output_dir_path: str,
+                     append_to_existing_output: bool,
+                     frame_duration_in_ms: int,
+                     reverse_animation: bool,
+                     fps: int = 15) -> None:
+        """
+        Loads all .png files from each specific temporary folder and concatenates them to a single gif file respectively
+        """
+        key_frames = {}
+        key_files = {}
+        size = None
+        for key, frame_list in to_animate.items():
+            print(f'video for {key}')
+            if reverse_animation:
+                frame_list.reverse()
+            # loads actual picture data as frames
+            frames = [Image.open(path) for path in frame_list]
+            frames = [cv.cvtColor(np.asarray(image), cv.COLOR_RGB2BGR) for image in frames]
+            size = [frames[0].shape[1], frames[0].shape[0]]
+
+            key_frames[key] = frames
+            key_files[key] = f"{key}_video.mp4"
+        for key in to_animate.keys():
+            fourcc = cv.VideoWriter_fourcc('m', 'p', '4', 'v')
+            videowrite = cv.VideoWriter(os.path.join(output_dir_path, key_files[key]), fourcc, fps, size)
+            for i in range(len(key_frames[key])):
+                videowrite.write(key_frames[key][i])
+            videowrite.release()

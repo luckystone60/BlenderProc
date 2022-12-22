@@ -36,12 +36,14 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
             return loaded_objects
         # save all selected objects
         previously_selected_objects = bpy.context.selected_objects
-        if filepath.endswith('.obj'):
+        if filepath.endswith('.obj') or filepath.endswith('.OBJ'):
             # load an .obj file:
             if use_legacy_obj_import:
                 bpy.ops.import_scene.obj(filepath=filepath, **kwargs)
             else:
                 bpy.ops.wm.obj_import(filepath=filepath, **kwargs)
+        if filepath.endswith('.fbx') or filepath.endswith('.FBX'):
+            bpy.ops.import_scene.obj(filepath=filepath, **kwargs)
         elif filepath.endswith('.ply'):
             # load a .ply mesh
             bpy.ops.import_mesh.ply(filepath=filepath, **kwargs)
